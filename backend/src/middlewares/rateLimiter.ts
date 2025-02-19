@@ -23,6 +23,7 @@ export async function rateLimiter(
 
     if (requests > MAX_PER_SECONDS) {
       addToBlaclist(ip as string);
+      redis.del(ip as string);
       throw new CustomError("Too many requests", 429);
     }
 
