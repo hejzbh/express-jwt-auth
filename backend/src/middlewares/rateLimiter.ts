@@ -2,40 +2,32 @@ import { addToBlaclist } from "@/lib/blacklist.js";
 import { CustomError } from "@/lib/customError.js";
 import { getClientIP } from "@/utils/getClientIP.js";
 import { NextFunction, Request, Response } from "express";
+import { redis } from "@/lib/redis.js";
 
-export function rateLimiter() {
-  const requests = new Map();
-  const SECONDS = 1000;
-  const MAX_PER_SECONDS = 8;
+const MAX_PER_SECONDS = 8;
+const EXPIRE_TIME = 1;
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const ip = getClientIP(req);
+export async function rateLimiter(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const ip = getClientIP(req);
 
-      const now = Date.now();
+    const requests = await redis.incr(ip as string);
 
-      if (!requests.has(ip)) {
-        requests.set(ip, { count: 1, startTime: now });
-        return next();
-      }
+    if (requests === 1) {
+      redis.expire(ip as string, EXPIRE_TIME);
+    }
 
-      const userData = requests.get(ip);
-      const elapsedTime = now - userData.startTime;
-
-      if (elapsedTime > SECONDS) {
-        requests.delete(ip);
-        return next();
-      }
-
-      if (userData.count < MAX_PER_SECONDS) {
-        userData.count += 1;
-        return next();
-      }
-
+    if (requests > MAX_PER_SECONDS) {
       addToBlaclist(ip as string);
       throw new CustomError("Too many requests", 429);
-    } catch (err) {
-      next(err);
     }
-  };
+
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
