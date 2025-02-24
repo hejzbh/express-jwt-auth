@@ -28,7 +28,7 @@ app.use(
 );
 
 // Rate Limiter
-app.use(middlewares.rateLimiter());
+app.use(middlewares.rateLimiter);
 
 // If user is on blacklist
 app.use(middlewares.checkBlacklist);
